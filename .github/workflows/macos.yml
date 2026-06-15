@@ -1,0 +1,47 @@
+name: macOS build
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: ${{ matrix.component }}
+    runs-on: macos-14
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        component: [elnemo, genesis, smog2, xmipp]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install common build dependencies
+        run: >-
+          brew install
+          autoconf automake libtool gcc cmake ninja pkg-config
+          fftw open-mpi zlib hdf5 sqlite libtiff jpeg
+          python
+
+      - name: Install Python requirements for XMIPP
+        if: matrix.component == 'xmipp'
+        run: python3 -m pip install --break-system-packages numpy
+
+      - name: Build ${{ matrix.component }}
+        env:
+          PREFIX: ${{ github.workspace }}/install/${{ matrix.component }}
+        run: ./scripts/build-macos.sh '${{ matrix.component }}'
+
+      - name: Upload installation tree
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-${{ matrix.component }}
+          path: install/${{ matrix.component }}
+          if-no-files-found: warn

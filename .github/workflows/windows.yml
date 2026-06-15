@@ -1,0 +1,69 @@
+name: Windows build
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: ${{ matrix.component }} (MSYS2 MinGW64)
+    runs-on: windows-2025
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        component: [elnemo, genesis, smog2, xmipp]
+
+    defaults:
+      run:
+        shell: msys2 {0}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            base-devel
+            git
+            curl
+            tar
+            autoconf
+            automake
+            libtool
+            make
+            perl
+            mingw-w64-x86_64-toolchain
+            mingw-w64-x86_64-gcc-fortran
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-ninja
+            mingw-w64-x86_64-pkgconf
+            mingw-w64-x86_64-fftw
+            mingw-w64-x86_64-openmpi
+            mingw-w64-x86_64-zlib
+            mingw-w64-x86_64-hdf5
+            mingw-w64-x86_64-sqlite3
+            mingw-w64-x86_64-libtiff
+            mingw-w64-x86_64-libjpeg-turbo
+            mingw-w64-x86_64-python
+            mingw-w64-x86_64-python-numpy
+
+      - name: Build ${{ matrix.component }}
+        env:
+          PREFIX: ${{ github.workspace }}/install/${{ matrix.component }}
+        run: ./scripts/build-windows-msys2.sh '${{ matrix.component }}'
+
+      - name: Upload installation tree
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-${{ matrix.component }}
+          path: install/${{ matrix.component }}
+          if-no-files-found: warn
